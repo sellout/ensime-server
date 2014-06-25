@@ -665,42 +665,45 @@ argument is supplied) is a .scala or .java file."
 (add-to-list 'minor-mode-alist
              '(ensime-mode (:eval (ensime-modeline-string))))
 
+(defcustom ensime-mode-line-lighter "ENSIME"
+  "The default lighter for `ensime-mode'."
+  :group 'ensime
+  :type '(choice (const :tag "Off" nil)
+                 string))
+
 (defun ensime-modeline-string ()
   "Return the string to display in the modeline.
   \"ENSIME\" only appears if we aren't connected.  If connected, include
   connection-name, and possibly some state
   information."
   (when ensime-mode
-    (condition-case err
-	(let ((conn (ensime-current-connection)))
-	  (cond ((and ensime-mode (not conn))
-		 (cond
-		  ((ensime-probable-owning-connection-for-source-file
-		    buffer-file-name)
-		   " [ENSIME: Connected...]")
-		  (t " [ENSIME: No Connection]")))
+    (concat (if ensime-mode-line-lighter
+                (concat " " ensime-mode-line-lighter)
+              "")
+            "["
+            (condition-case nil
+                (let ((conn (ensime-current-connection)))
+                  (cond ((not conn)
+                         (cond
+                          ((ensime-probable-owning-connection-for-source-file
+                            buffer-file-name)
+                           "Connected...")
+                          (t "No Connection")))
 
-		((and ensime-mode (ensime-connected-p conn))
-		 (concat " ["
-			 (or (plist-get (ensime-config conn) :project-name)
-			     "ENSIME: Connected...")
-			 (let ((status (ensime-modeline-state-string conn))
-			       (unready (not (ensime-analyzer-ready conn))))
-			   (cond (status (concat " (" status ")"))
-				 (unready " (analyzing...)")
-				 (t "")))
-			 (concat (format " : %s/%s"
-					 (ensime-num-errors conn)
-					 (ensime-num-warnings conn)))
-			 "]"))
-		(ensime-mode " [ENSIME: Dead Connection]")
-		))
-      (error (progn
-	       " [ENSIME: wtf]"
-	       )))))
-
-
-
+                        ((ensime-connected-p conn)
+                         (concat (or (plist-get (ensime-config conn) :project-name)
+                                     "Connected...")
+                                 (let ((status (ensime-modeline-state-string conn))
+                                       (unready (not (ensime-analyzer-ready conn))))
+                                   (cond (status (concat " " status ""))
+                                         (unready " analyzing...")
+                                         (t "")))
+                                 (concat (format ":%s/%s"
+                                                 (ensime-num-errors conn)
+                                                 (ensime-num-warnings conn)))))
+                        (t "Dead Connection")))
+              (error "wtf"))
+            "]")))
 
 (defun ensime-modeline-state-string (conn)
   "Return a string possibly describing CONN's state."
